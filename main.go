@@ -9,11 +9,14 @@ import (
 
 	"github.com/donghquinn/hls_converter/configs"
 	summary "github.com/donghquinn/hls_converter/kafka"
+	"github.com/donghquinn/hls_converter/utils"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	godotenv.Load(".env")
+
+	go utils.ScheduleLogRotation()
 
 	configs.SetGlobalConfiguration()
 
