@@ -235,10 +235,18 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 
 	// Perform the conversion
 	err := converter.ConvertToHLS(job)
+
+	// 업데이트: 동적으로 생성된 출력 파일 경로 사용
+	outputFilePath := job.OutputFile
+	if outputFilePath == "" {
+		// 예외 처리: 출력 파일이 설정되지 않은 경우 기본값 사용
+		outputFilePath = filepath.Join(outputDir, "playlist.m3u8")
+	}
+
 	completionMsg := CompletionMessage{
 		RequestID:   fileMsg.RequestID,
 		InputFile:   fileMsg.FilePath,
-		OutputFile:  filepath.Join(outputDir, "playlist.m3u8"),
+		OutputFile:  outputFilePath,
 		Status:      job.Status,
 		CompletedAt: time.Now(),
 	}
@@ -248,7 +256,8 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 		completionMsg.ErrorMessage = err.Error()
 		log.Printf("[KAFKA] Conversion failed for request %s: %v", fileMsg.RequestID, err)
 	} else {
-		log.Printf("[KAFKA] Conversion completed for request %s", fileMsg.RequestID)
+		log.Printf("[KAFKA] Conversion completed for request %s: Output file: %s",
+			fileMsg.RequestID, outputFilePath)
 	}
 
 	// Send completion message if output topic is configured

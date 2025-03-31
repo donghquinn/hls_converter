@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -27,6 +29,7 @@ type ConversionJob struct {
 	CreatedAt   time.Time `json:"created_at"`
 	CompletedAt time.Time `json:"completed_at,omitempty"`
 	Error       string    `json:"error,omitempty"`
+	OutputFile  string    `json:"output_file,omitempty"` // 추가: 생성된 m3u8 파일 경로
 }
 
 // 응답 구조체
@@ -41,80 +44,6 @@ var (
 	jobs   = make(map[string]*ConversionJob)
 )
 
-// // 파일 업로드 및 변환 요청 처리
-// func handleConvert(w http.ResponseWriter, r *http.Request) {
-// 	// 파일 업로드 처리
-// 	err := r.ParseMultipartForm(32 << 20) // 32MB 제한
-// 	if err != nil {
-// 		sendErrorResponse(w, "파일 파싱 오류", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	file, handler, err := r.FormFile("file")
-// 	if err != nil {
-// 		sendErrorResponse(w, "파일을 찾을 수 없습니다", http.StatusBadRequest)
-// 		return
-// 	}
-// 	defer file.Close()
-
-// 	// 파일 확장자 검증
-// 	if !isVideoFile(handler.Filename) {
-// 		sendErrorResponse(w, "지원하지 않는 파일 형식입니다. MP4, MOV, AVI 또는 MKV 파일만 지원합니다", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	// 업로드 파일 저장
-// 	jobID := uuid.New().String()
-// 	uploadPath := filepath.Join(config.UploadDir, jobID+filepath.Ext(handler.Filename))
-// 	outDir := filepath.Join(config.OutputDir, jobID)
-
-// 	// 출력 디렉토리 생성
-// 	os.MkdirAll(outDir, 0755)
-
-// 	// 업로드된 파일 저장
-// 	dst, err := os.Create(uploadPath)
-// 	if err != nil {
-// 		sendErrorResponse(w, "파일 저장 오류", http.StatusInternalServerError)
-// 		return
-// 	}
-// 	defer dst.Close()
-
-// 	// 업로드된 파일을 저장
-// 	file.Seek(0, 0)
-// 	_, err = file.WriteTo(dst)
-// 	if err != nil {
-// 		sendErrorResponse(w, "파일 저장 오류", http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	// 새로운 변환 작업 생성
-// 	job := &ConversionJob{
-// 		ID:        jobID,
-// 		InputFile: uploadPath,
-// 		OutputDir: outDir,
-// 		Status:    "pending",
-// 		CreatedAt: time.Now(),
-// 	}
-// 	jobs[jobID] = job
-
-// 	// 비동기로 변환 작업 시작
-// 	go convertToHLS(job)
-
-// 	// 응답 반환
-// 	response := Response{
-// 		Success: true,
-// 		Message: "변환 작업이 시작되었습니다",
-// 		Data: map[string]string{
-// 			"job_id":     jobID,
-// 			"status_url": fmt.Sprintf("/jobs/%s", jobID),
-// 			"stream_url": fmt.Sprintf("/outputs/%s/playlist.m3u8", jobID),
-// 		},
-// 	}
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(http.StatusAccepted)
-// 	json.NewEncoder(w).Encode(response)
-// }
-
 // 비디오 파일 형식 검증
 func isVideoFile(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
@@ -127,18 +56,48 @@ func isVideoFile(filename string) bool {
 	return false
 }
 
+// 파일명 인코딩 함수 - MD5 해시 사용
+func encodeFileName(filename string) string {
+	// 파일 확장자 제외한 기본 이름 추출
+	baseName := filepath.Base(filename)
+	baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+
+	// 타임스탬프 추가하여 고유성 보장
+	nameToEncode := fmt.Sprintf("%s_%d", baseNameWithoutExt, time.Now().UnixNano())
+
+	// MD5 해시 생성
+	hasher := md5.New()
+	hasher.Write([]byte(nameToEncode))
+	encodedName := hex.EncodeToString(hasher.Sum(nil))
+
+	return encodedName
+}
+
 // FFmpeg를 사용하여 HLS로 변환
 func ConvertToHLS(job *ConversionJob) error {
 	job.Status = "processing"
 
-	playlistPath := filepath.Join(job.OutputDir, "playlist.m3u8")
-	segmentPath := filepath.Join(job.OutputDir, "segment_%03d.ts")
+	// 원본 파일명에서 인코딩된 이름 생성
+	encodedFileName := encodeFileName(job.InputFile)
+
+	// 출력 파일 이름 구성
+	m3u8FileName := fmt.Sprintf("%s.m3u8", encodedFileName)
+	tsFilePattern := fmt.Sprintf("%s_%%03d.ts", encodedFileName)
+
+	// 전체 경로 설정
+	playlistPath := filepath.Join(job.OutputDir, m3u8FileName)
+	segmentPath := filepath.Join(job.OutputDir, tsFilePattern)
+
+	// 작업에 출력 파일 경로 저장
+	job.OutputFile = playlistPath
 
 	// 환경 변수에서 FFmpeg 경로 가져오기 또는 기본값 사용
 	ffmpegPath := os.Getenv("FFMPEG_PATH")
 	if ffmpegPath == "" {
 		ffmpegPath = "ffmpeg" // 기본값
 	}
+
+	log.Printf("변환 시작 (Job %s): %s -> %s", job.ID, job.InputFile, playlistPath)
 
 	// FFmpeg 명령 구성
 	cmd := exec.Command(
@@ -153,6 +112,9 @@ func ConvertToHLS(job *ConversionJob) error {
 		"-hls_segment_filename", segmentPath,
 		playlistPath,
 	)
+
+	// FFmpeg 명령 로깅
+	log.Printf("FFmpeg 명령: %v", cmd.Args)
 
 	// 명령 실행 및 오류 처리
 	output, err := cmd.CombinedOutput()
@@ -172,4 +134,20 @@ func ConvertToHLS(job *ConversionJob) error {
 	// 업로드된 원본 파일 삭제 (선택적)
 	// os.Remove(job.InputFile)
 	return nil
+}
+
+// 설정 로드 함수
+func LoadConfig(cfg Config) {
+	config = cfg
+
+	// 설정값 확인 로깅
+	log.Printf("HLS 변환기 설정 로드: 세그먼트 길이 %d초", config.SegmentDuration)
+
+	// 출력 디렉터리가 없으면 생성
+	if config.OutputDir != "" {
+		if _, err := os.Stat(config.OutputDir); os.IsNotExist(err) {
+			os.MkdirAll(config.OutputDir, 0755)
+			log.Printf("출력 디렉터리 생성: %s", config.OutputDir)
+		}
+	}
 }
