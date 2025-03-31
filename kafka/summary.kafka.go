@@ -52,6 +52,9 @@ func NewKafkaInstance() (*KafkaInterface, error) {
 	}
 	defer conn.Close()
 
+	// 브로커 연결 정보 로깅 추가
+	log.Printf("[KAFKA] Connecting to broker: %s", kafkaConfig.Broker)
+
 	// Ensure topic exists
 	err = conn.CreateTopics(kafka.TopicConfig{
 		Topic:             kafkaConfig.InputTopic,
@@ -75,23 +78,31 @@ func NewKafkaInstance() (*KafkaInterface, error) {
 		}
 	}
 
-	// Create consumer
+	// Create consumer with explicit broker address
 	consumer := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:        []string{kafkaConfig.Broker},
+		Brokers:        []string{kafkaConfig.Broker}, // 브로커 주소 명시적으로 사용
 		GroupID:        kafkaConfig.GroupId,
 		Topic:          kafkaConfig.InputTopic,
 		MaxBytes:       10e6, // 10MB
 		CommitInterval: 0,    // Disable auto-commit
 	})
 
+	// 컨슈머 설정 로깅 추가
+	log.Printf("[KAFKA] Created consumer for topic %s on broker %s with group ID %s",
+		kafkaConfig.InputTopic, kafkaConfig.Broker, kafkaConfig.GroupId)
+
 	// Create producer for completion messages if output topic is provided
 	var producer *kafka.Writer
 	if kafkaConfig.OutputTopic != "" {
 		producer = &kafka.Writer{
-			Addr:     kafka.TCP(kafkaConfig.Broker),
+			Addr:     kafka.TCP(kafkaConfig.Broker), // 명시적으로 브로커 주소 사용
 			Topic:    kafkaConfig.OutputTopic,
 			Balancer: &kafka.LeastBytes{},
 		}
+
+		// 프로듀서 설정 로깅 추가
+		log.Printf("[KAFKA] Created producer for topic %s on broker %s",
+			kafkaConfig.OutputTopic, kafkaConfig.Broker)
 	}
 
 	instance := &KafkaInterface{
@@ -120,7 +131,8 @@ func (k *KafkaInterface) Consume(ctx context.Context) {
 		}
 	}()
 
-	log.Printf("[KAFKA] Starting consumer for topic: %s", k.InputTopic)
+	// 브로커 연결 정보 로깅 추가
+	log.Printf("[KAFKA] Starting consumer for topic: %s on broker: %s", k.InputTopic, k.Broker)
 
 	for {
 		// Check if context is done
@@ -141,12 +153,13 @@ func (k *KafkaInterface) Consume(ctx context.Context) {
 				// This is just a timeout, continue
 				continue
 			}
-			log.Printf("[KAFKA] Error reading message: %v", err)
+			log.Printf("[KAFKA] Error reading message from %s: %v", k.Broker, err)
 			time.Sleep(1 * time.Second) // Avoid tight loop in case of persistent errors
 			continue
 		}
 
-		log.Printf("[KAFKA] Received message from %s/%d/%d", m.Topic, m.Partition, m.Offset)
+		log.Printf("[KAFKA] Received message from %s/%d/%d on broker %s",
+			m.Topic, m.Partition, m.Offset, k.Broker)
 
 		// Process the message
 		if err := k.processMessage(ctx, m); err != nil {
@@ -167,6 +180,25 @@ func (k *KafkaInterface) Consume(ctx context.Context) {
 	}
 }
 
+func (k *KafkaInterface) sendCompletionMessage(ctx context.Context, msg CompletionMessage) error {
+	if k.ProducerConn == nil {
+		return fmt.Errorf("producer connection is nil")
+	}
+
+	// 프로듀서 브로커 정보 로깅 추가
+	log.Printf("[KAFKA] Sending completion message to topic %s on broker %s",
+		k.OutputTopic, k.Broker)
+
+	value, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal completion message: %v", err)
+	}
+
+	return k.ProducerConn.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(msg.RequestID),
+		Value: value,
+	})
+}
 func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) error {
 	// Parse the message
 	var fileMsg FileMessage
@@ -228,22 +260,6 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 	}
 
 	return nil
-}
-
-func (k *KafkaInterface) sendCompletionMessage(ctx context.Context, msg CompletionMessage) error {
-	if k.ProducerConn == nil {
-		return fmt.Errorf("producer connection is nil")
-	}
-
-	value, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal completion message: %v", err)
-	}
-
-	return k.ProducerConn.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(msg.RequestID),
-		Value: value,
-	})
 }
 
 // shouldCommitOnError determines if we should commit a message that resulted in error
