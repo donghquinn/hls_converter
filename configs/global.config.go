@@ -12,6 +12,9 @@ type GlobalConfig struct {
 
 	GoogleClientId string
 	GooglePass     string
+
+	UploadDir string
+	OutputDir string
 }
 
 var GlobalConfiguration GlobalConfig
@@ -31,4 +34,7 @@ func SetGlobalConfiguration() {
 	// Google Oauth
 	GlobalConfiguration.GoogleClientId = os.Getenv("GOOGLE_CLIENT_ID")
 	GlobalConfiguration.GooglePass = os.Getenv("GOOGLE_CLIENT_PASSWD")
+
+	GlobalConfiguration.UploadDir = os.Getenv("UPLOAD_DIR")
+	GlobalConfiguration.OutputDir = os.Getenv("OUTPUT_DIR")
 }
