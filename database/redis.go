@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/donghquinn/hls_converter/configs"
 	"github.com/redis/go-redis/v9"
-	"org.donghyuns.com/hls/converter/configs"
 )
 
 type RedisStruct struct {

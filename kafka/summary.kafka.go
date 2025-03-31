@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/donghquinn/hls_converter/biz/converter"
+	"github.com/donghquinn/hls_converter/configs"
 	"github.com/segmentio/kafka-go"
-	"org.donghyuns.com/hls/converter/biz/converter"
-	"org.donghyuns.com/hls/converter/configs"
 )
 
 type KafkaInterface struct {
@@ -120,7 +120,7 @@ func (k *KafkaInterface) Consume() {
 
 		// 요약 처리 호출
 		if err := converter.ConvertToHLS(&converter.ConversionJob{
-			ID:          fmt.Sprintf("%s", referenceSummarySeq),
+			ID:          fmt.Sprintf("%d", referenceSummarySeq),
 			InputFile:   requestId,
 			OutputDir:   requestId + ".m3u8",
 			Status:      "completed",
