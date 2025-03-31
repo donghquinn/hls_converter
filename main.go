@@ -24,11 +24,14 @@ func main() {
 
 	configs.SetKafkaConfig()
 
+	log.Printf("[DEBUGGING] Kafka Broker: %s", configs.KafkaConfig.Broker)
+
 	// Create directories if they don't exist
 	createDirectories()
 
 	// Create Kafka consumer
 	kafkaInstance, err := summary.NewKafkaInstance()
+
 	if err != nil {
 		log.Fatalf("Failed to create Kafka instance: %v", err)
 	}
