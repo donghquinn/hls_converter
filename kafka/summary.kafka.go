@@ -2,13 +2,14 @@ package summary
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
 
 	"github.com/segmentio/kafka-go"
-
-	"org.donghyuns.com/reference/scheduler/configs"
+	"org.donghyuns.com/hls/converter/biz/converter"
+	"org.donghyuns.com/hls/converter/configs"
 )
 
 type KafkaInterface struct {
@@ -118,7 +119,15 @@ func (k *KafkaInterface) Consume() {
 		}
 
 		// 요약 처리 호출
-		if err := Summary(requestId, referenceSummarySeq); err != nil {
+		if err := converter.ConvertToHLS(&converter.ConversionJob{
+			ID:          fmt.Sprintf("%s", referenceSummarySeq),
+			InputFile:   requestId,
+			OutputDir:   requestId + ".m3u8",
+			Status:      "completed",
+			CreatedAt:   time.Now(),
+			CompletedAt: time.Now(),
+			Error:       "",
+		}); err != nil {
 			log.Printf("[KAFKA] Summary Run Error: %v", err)
 			// 에러 발생 시, 해당 메시지를 재처리하거나 DLQ로 보내는 로직 추가 가능
 			// 여기서는 커밋하지 않으므로 재처리 대상이 됩니다.

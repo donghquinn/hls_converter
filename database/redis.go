@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"org.donghyuns.com/reference/scheduler/configs"
+	"org.donghyuns.com/hls/converter/configs"
 )
 
 type RedisStruct struct {

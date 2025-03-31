@@ -1,4 +1,4 @@
-module org.donghyuns.com/hls/converter
+module github.com/donghquinn/hls_converter
 
 go 1.24.1
 
