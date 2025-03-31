@@ -45,12 +45,16 @@ type KafkaInterface struct {
 func NewKafkaInstance() (*KafkaInterface, error) {
 	kafkaConfig := configs.KafkaConfig
 
+	log.Printf("[DEBUGGING] Kafka Broker: %s", kafkaConfig.Broker)
+
 	// Validate broker connection
 	conn, err := kafka.Dial("tcp", kafkaConfig.Broker)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial Kafka broker: %v", err)
 	}
 	defer conn.Close()
+
+	log.Printf("[DEBUGGING] Kafka Input Topic: %s", kafkaConfig.InputTopic)
 
 	// Ensure topic exists
 	err = conn.CreateTopics(kafka.TopicConfig{
@@ -63,6 +67,8 @@ func NewKafkaInstance() (*KafkaInterface, error) {
 		log.Printf("Note: could not create topic (may already exist): %v", err)
 	}
 
+	log.Printf("[DEBUGGING] Kafka OUPUT Topic: %s", kafkaConfig.OutputTopic)
+
 	// Create output topic if provided
 	if kafkaConfig.OutputTopic != "" {
 		err = conn.CreateTopics(kafka.TopicConfig{
@@ -74,6 +80,8 @@ func NewKafkaInstance() (*KafkaInterface, error) {
 			log.Printf("Note: could not create output topic (may already exist): %v", err)
 		}
 	}
+
+	log.Printf("[DEBUGGING] Kafka GroupID: %s", kafkaConfig.GroupId)
 
 	// Create consumer
 	consumer := kafka.NewReader(kafka.ReaderConfig{
