@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/donghquinn/hls_converter/biz/converter"
@@ -236,11 +237,15 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 	// Perform the conversion
 	err := converter.ConvertToHLS(job)
 
-	// 업데이트: 동적으로 생성된 출력 파일 경로 사용
+	// 동적으로 생성된 출력 파일 경로 사용
 	outputFilePath := job.OutputFile
 	if outputFilePath == "" {
-		// 예외 처리: 출력 파일이 설정되지 않은 경우 기본값 사용
-		outputFilePath = filepath.Join(outputDir, "playlist.m3u8")
+		// 파일명이 없는 경우 원본 파일명을 기반으로 동적 생성
+		baseName := filepath.Base(fileMsg.FilePath)
+		baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+		encodedName := converter.EncodeFileName(baseNameWithoutExt) // 공개 함수로 변경 필요
+		m3u8FileName := fmt.Sprintf("%s.m3u8", encodedName)
+		outputFilePath = filepath.Join(outputDir, m3u8FileName)
 	}
 
 	completionMsg := CompletionMessage{
