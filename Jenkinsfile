@@ -35,7 +35,7 @@ pipeline {
 
   //환경변수
   environment {
-    APP_ENV_ID = 'blog-back-env'
+    APP_ENV_ID = 'hls-converter-env'
 
     //브랜치 선택
     BUILD_BRANCH = getBuildBranch(env.GIT_BRANCH)
