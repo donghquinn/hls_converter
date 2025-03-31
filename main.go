@@ -14,7 +14,9 @@ import (
 )
 
 func main() {
-	godotenv.Load(".env")
+	if loadErr := godotenv.Load(".env"); loadErr != nil {
+		log.Fatalf("Error loading .env file: %v", loadErr)
+	}
 
 	go utils.ScheduleLogRotation()
 
