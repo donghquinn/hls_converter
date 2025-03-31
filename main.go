@@ -24,8 +24,6 @@ func main() {
 
 	configs.SetKafkaConfig()
 
-	log.Printf("[DEBUGGING] Kafka Broker: %s", configs.KafkaConfig.Broker)
-
 	// Create directories if they don't exist
 	createDirectories()
 
