@@ -56,8 +56,8 @@ func isVideoFile(filename string) bool {
 	return false
 }
 
-// 파일명 인코딩 함수 - MD5 해시 사용
-func encodeFileName(filename string) string {
+// 파일명 인코딩 함수 - MD5 해시 사용 (외부에서 호출 가능하도록 공개 함수)
+func EncodeFileName(filename string) string {
 	// 파일 확장자 제외한 기본 이름 추출
 	baseName := filepath.Base(filename)
 	baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
@@ -78,7 +78,9 @@ func ConvertToHLS(job *ConversionJob) error {
 	job.Status = "processing"
 
 	// 원본 파일명에서 인코딩된 이름 생성
-	encodedFileName := encodeFileName(job.InputFile)
+	baseName := filepath.Base(job.InputFile)
+	baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	encodedFileName := EncodeFileName(baseNameWithoutExt)
 
 	// 출력 파일 이름 구성
 	m3u8FileName := fmt.Sprintf("%s.m3u8", encodedFileName)
