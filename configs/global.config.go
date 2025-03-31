@@ -29,11 +29,11 @@ func SetGlobalConfiguration() {
 
 	// JWT
 	GlobalConfiguration.JwtKey = os.Getenv("JWT_KEY")
-	GlobalConfiguration.CookieDomain = os.Getenv("COOKIE_DOMAIN")
+	// GlobalConfiguration.CookieDomain = os.Getenv("COOKIE_DOMAIN")
 
 	// Google Oauth
-	GlobalConfiguration.GoogleClientId = os.Getenv("GOOGLE_CLIENT_ID")
-	GlobalConfiguration.GooglePass = os.Getenv("GOOGLE_CLIENT_PASSWD")
+	// GlobalConfiguration.GoogleClientId = os.Getenv("GOOGLE_CLIENT_ID")
+	// GlobalConfiguration.GooglePass = os.Getenv("GOOGLE_CLIENT_PASSWD")
 
 	GlobalConfiguration.UploadDir = os.Getenv("UPLOAD_DIR")
 	GlobalConfiguration.OutputDir = os.Getenv("OUTPUT_DIR")
