@@ -15,6 +15,8 @@ type GlobalConfig struct {
 
 	UploadDir string
 	OutputDir string
+
+	Directory string
 }
 
 var GlobalConfiguration GlobalConfig
