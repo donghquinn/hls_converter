@@ -246,20 +246,23 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 
 	// 동적으로 생성된 출력 파일 경로 사용
 	outputFilePath := job.OutputFile
+
+	m3u8FileName := outputFilePath
+
 	if outputFilePath == "" {
 		// 파일명이 없는 경우 원본 파일명을 기반으로 동적 생성
 		baseName := filepath.Base(fileMsg.FilePath)
 		baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 		encodedName := converter.EncodeFileName(baseNameWithoutExt) // 공개 함수로 변경 필요
-		m3u8FileName := fmt.Sprintf("%s.m3u8", encodedName)
+		m3u8FileName = fmt.Sprintf("%s.m3u8", encodedName)
 		outputFilePath = filepath.Join(outputDir, m3u8FileName)
+	}
 
-		updateErr := UpdateConvertedFileName(job.ID, m3u8FileName)
+	updateErr := UpdateConvertedFileName(job.ID, m3u8FileName)
 
-		if updateErr != nil {
-			log.Printf("Error Update Db Error: %v", updateErr)
-			return updateErr
-		}
+	if updateErr != nil {
+		log.Printf("Error Update Db Error: %v", updateErr)
+		return updateErr
 	}
 
 	completionMsg := CompletionMessage{
