@@ -16,7 +16,7 @@ services:
       - ./.env:/home/node/.env
       - ./logs:/home/node/logs
       - /home/dong/files/video:/home/node/video
-      - /home/dong/files/hls:/home/node/output
+      - /home/dong/files/hls:/home/node/hls
         # 호스트의 FFmpeg 바이너리 마운트
       # - /usr/bin/ffmpeg:/usr/bin/ffmpeg:ro
       # # FFmpeg 관련 공유 라이브러리 마운트 (Ubuntu/Debian 기준)
