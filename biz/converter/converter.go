@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/donghquinn/hls_converter/database"
 )
 
 // 설정 구조체
@@ -22,6 +24,7 @@ type Config struct {
 
 // 변환 작업 상태 구조체
 type ConversionJob struct {
+	VideoSeq    string    `json:"videoSeq"`
 	ID          string    `json:"id"`
 	InputFile   string    `json:"input_file"`
 	OutputDir   string    `json:"output_dir"`
@@ -125,7 +128,16 @@ func ConvertToHLS(job *ConversionJob) error {
 		job.Error = fmt.Sprintf("FFmpeg 오류: %v\n%s", err, string(output))
 		job.CompletedAt = time.Now()
 		log.Printf("변환 실패 (Job %s): %v\n%s", job.ID, err, string(output))
+
+		go ChangeConvertStatus(job.ID, job.VideoSeq, "FAILED")
 		return err
+	}
+
+	updateErr := UpdateConvertedFileName(job.ID, job.VideoSeq, m3u8FileName)
+
+	if updateErr != nil {
+		log.Printf("Error Update Db Error: %v", updateErr)
+		return updateErr
 	}
 
 	// 변환 성공 처리
@@ -152,4 +164,38 @@ func LoadConfig(cfg Config) {
 			log.Printf("출력 디렉터리 생성: %s", config.OutputDir)
 		}
 	}
+}
+
+func UpdateConvertedFileName(userId, videoSeq, fileName string) error {
+	dbCon, dbErr := database.InitPostgresConnection()
+
+	if dbErr != nil {
+		return dbErr
+	}
+
+	insertErr := dbCon.InsertQuery(UpdateFileName, nil, fileName, "COMPLETE", videoSeq, userId)
+
+	if insertErr != nil {
+		log.Printf("Error inserting converted file name: %v", insertErr)
+		return insertErr
+	}
+
+	return nil
+}
+
+func ChangeConvertStatus(userId, videoSeq, convertStatus string) error {
+	dbCon, dbErr := database.InitPostgresConnection()
+
+	if dbErr != nil {
+		return dbErr
+	}
+
+	insertErr := dbCon.InsertQuery(UpdateConvertStatus, nil, convertStatus, videoSeq, userId)
+
+	if insertErr != nil {
+		log.Printf("Error inserting converted file name: %v", insertErr)
+		return insertErr
+	}
+
+	return nil
 }

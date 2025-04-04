@@ -12,15 +12,19 @@ import (
 
 	"github.com/donghquinn/hls_converter/biz/converter"
 	"github.com/donghquinn/hls_converter/configs"
-	"github.com/donghquinn/hls_converter/database"
 	"github.com/segmentio/kafka-go"
 )
 
 // FileMessage represents the message structure expected from Kafka
-type FileMessage struct {
-	RequestID  string `json:"requestId"`
-	FilePath   string `json:"filePath"`
-	OutputPath string `json:"outputPath,omitempty"`
+// type FileMessage struct {
+// 	RequestID  string `json:"requestId"`
+// 	FilePath   string `json:"filePath"`
+// 	OutputPath string `json:"outputPath,omitempty"`
+// }
+
+type KafakaMessage struct {
+	UserId   string `json:"userId"`
+	FileName string `json:"filePath"`
 }
 
 // CompletionMessage represents the message to be sent after conversion
@@ -204,42 +208,44 @@ func (k *KafkaInterface) sendCompletionMessage(ctx context.Context, msg Completi
 
 func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) error {
 	// Parse the message
-	var fileMsg FileMessage
+	var kafkaMsg KafakaMessage
 	log.Printf("[KAFKA] Processing Message: key: %s, path: %s", m.Key, m.Value)
 
 	// key is videoSeq,value is file directory
-	fileMsg.FilePath = string(m.Value)
-	fileMsg.RequestID = string(m.Key)
-	// if err := json.Unmarshal(m.Value, &fileMsg); err != nil {
-	// 	return fmt.Errorf("failed to unmarshal message: %v", err)
-	// }
 
-	if fileMsg.RequestID == "" || fileMsg.FilePath == "" {
+	videoSeq := string(m.Key)
+
+	if err := json.Unmarshal(m.Value, &kafkaMsg); err != nil {
+		return fmt.Errorf("failed to unmarshal message: %v", err)
+	}
+
+	if kafkaMsg.UserId == "" || kafkaMsg.FileName == "" {
 		return fmt.Errorf("invalid message format: missing requestId or filePath")
 	}
 
 	// Validate that the file exists
-	if _, err := os.Stat(fileMsg.FilePath); os.IsNotExist(err) {
-		return fmt.Errorf("input file not found: %s", fileMsg.FilePath)
+	if _, err := os.Stat(kafkaMsg.FileName); os.IsNotExist(err) {
+		return fmt.Errorf("input file not found: %s", kafkaMsg.FileName)
 	}
 
 	// Create output directory
-	outputDir := filepath.Join(k.OutputDir, fileMsg.RequestID)
+	outputDir := filepath.Join(k.OutputDir, kafkaMsg.UserId)
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
 	// Create a conversion job
 	job := &converter.ConversionJob{
-		ID:        fileMsg.RequestID,
-		InputFile: fileMsg.FilePath,
+		VideoSeq:  videoSeq,
+		ID:        kafkaMsg.UserId,
+		InputFile: kafkaMsg.FileName,
 		OutputDir: outputDir,
 		Status:    "pending",
 		CreatedAt: time.Now(),
 	}
 
 	log.Printf("[KAFKA] Starting HLS conversion for request %s: %s -> %s",
-		fileMsg.RequestID, fileMsg.FilePath, outputDir)
+		kafkaMsg.UserId, kafkaMsg.FileName, outputDir)
 
 	// Perform the conversion
 	err := converter.ConvertToHLS(job)
@@ -251,23 +257,16 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 
 	if outputFilePath == "" {
 		// 파일명이 없는 경우 원본 파일명을 기반으로 동적 생성
-		baseName := filepath.Base(fileMsg.FilePath)
+		baseName := filepath.Base(kafkaMsg.FileName)
 		baseNameWithoutExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 		encodedName := converter.EncodeFileName(baseNameWithoutExt) // 공개 함수로 변경 필요
 		m3u8FileName = fmt.Sprintf("%s.m3u8", encodedName)
 		outputFilePath = filepath.Join(outputDir, m3u8FileName)
 	}
 
-	updateErr := UpdateConvertedFileName(job.ID, m3u8FileName)
-
-	if updateErr != nil {
-		log.Printf("Error Update Db Error: %v", updateErr)
-		return updateErr
-	}
-
 	completionMsg := CompletionMessage{
-		RequestID:   fileMsg.RequestID,
-		InputFile:   fileMsg.FilePath,
+		RequestID:   kafkaMsg.UserId,
+		InputFile:   kafkaMsg.FileName,
 		OutputFile:  outputFilePath,
 		Status:      job.Status,
 		CompletedAt: time.Now(),
@@ -276,10 +275,10 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 	if err != nil {
 		completionMsg.Status = "failed"
 		completionMsg.ErrorMessage = err.Error()
-		log.Printf("[KAFKA] Conversion failed for request %s: %v", fileMsg.RequestID, err)
+		log.Printf("[KAFKA] Conversion failed for request %s: %v", videoSeq, err)
 	} else {
 		log.Printf("[KAFKA] Conversion completed for request %s: Output file: %s",
-			fileMsg.RequestID, outputFilePath)
+			videoSeq, outputFilePath)
 	}
 
 	// Send completion message if output topic is configured
@@ -309,21 +308,4 @@ func (k *KafkaInterface) Close() {
 	if k.ProducerConn != nil {
 		k.ProducerConn.Close()
 	}
-}
-
-func UpdateConvertedFileName(videoSeq string, fileName string) error {
-	dbCon, dbErr := database.InitPostgresConnection()
-
-	if dbErr != nil {
-		return dbErr
-	}
-
-	insertErr := dbCon.InsertQuery(InsertFileName, nil, videoSeq, "COMPLETE", fileName)
-
-	if insertErr != nil {
-		log.Printf("Error inserting converted file name: %v", insertErr)
-		return insertErr
-	}
-
-	return nil
 }
