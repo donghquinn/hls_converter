@@ -1,4 +1,4 @@
-package converter
+package kafka
 
 var InsertConvertedFileName = `
 	UPDATE video_table

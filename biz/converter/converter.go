@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/donghquinn/hls_converter/database"
 )
 
 // 설정 구조체
@@ -135,12 +133,6 @@ func ConvertToHLS(job *ConversionJob) error {
 	job.CompletedAt = time.Now()
 	log.Printf("변환 완료 (Job %s): %s -> %s", job.ID, job.InputFile, playlistPath)
 
-	updateErr := UpdateConvertedFileName(job.ID, m3u8FileName)
-
-	if updateErr != nil {
-		log.Printf("Error Update Db Error: %v", updateErr)
-		return updateErr
-	}
 	// 업로드된 원본 파일 삭제 (선택적)
 	// os.Remove(job.InputFile)
 	return nil
@@ -160,21 +152,4 @@ func LoadConfig(cfg Config) {
 			log.Printf("출력 디렉터리 생성: %s", config.OutputDir)
 		}
 	}
-}
-
-func UpdateConvertedFileName(videoSeq string, fileName string) error {
-	dbCon, dbErr := database.InitPostgresConnection()
-
-	if dbErr != nil {
-		return dbErr
-	}
-
-	insertErr := dbCon.InsertQuery(InsertConvertedFileName, nil, videoSeq, "COMPLETE", fileName)
-
-	if insertErr != nil {
-		log.Printf("Error inserting converted file name: %v", insertErr)
-		return insertErr
-	}
-
-	return nil
 }

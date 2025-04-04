@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/donghquinn/hls_converter/configs"
-	summary "github.com/donghquinn/hls_converter/kafka"
+	"github.com/donghquinn/hls_converter/kafka"
 	"github.com/donghquinn/hls_converter/utils"
 	"github.com/joho/godotenv"
 )
@@ -28,7 +28,7 @@ func main() {
 	createDirectories()
 
 	// Create Kafka consumer
-	kafkaInstance, err := summary.NewKafkaInstance()
+	kafkaInstance, err := kafka.NewKafkaInstance()
 
 	if err != nil {
 		log.Fatalf("Failed to create Kafka instance: %v", err)
