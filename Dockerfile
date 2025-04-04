@@ -19,6 +19,10 @@ RUN go build -o backend .
 
 FROM golang:1.24.1-alpine3.20 AS RUNNER
 
+RUN apk update
+RUN apk upgrade
+RUN apk add --no-cache ffmpeg
+
 WORKDIR /home/node
 
 COPY --from=builder /app/backend ./backend
