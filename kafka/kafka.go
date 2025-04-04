@@ -1,4 +1,4 @@
-package summary
+package kafka
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/donghquinn/hls_converter/biz/converter"
 	"github.com/donghquinn/hls_converter/configs"
+	"github.com/donghquinn/hls_converter/database"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -200,6 +201,7 @@ func (k *KafkaInterface) sendCompletionMessage(ctx context.Context, msg Completi
 		Value: value,
 	})
 }
+
 func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) error {
 	// Parse the message
 	var fileMsg FileMessage
@@ -251,6 +253,13 @@ func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) er
 		encodedName := converter.EncodeFileName(baseNameWithoutExt) // 공개 함수로 변경 필요
 		m3u8FileName := fmt.Sprintf("%s.m3u8", encodedName)
 		outputFilePath = filepath.Join(outputDir, m3u8FileName)
+
+		updateErr := UpdateConvertedFileName(job.ID, m3u8FileName)
+
+		if updateErr != nil {
+			log.Printf("Error Update Db Error: %v", updateErr)
+			return updateErr
+		}
 	}
 
 	completionMsg := CompletionMessage{
@@ -297,4 +306,21 @@ func (k *KafkaInterface) Close() {
 	if k.ProducerConn != nil {
 		k.ProducerConn.Close()
 	}
+}
+
+func UpdateConvertedFileName(videoSeq string, fileName string) error {
+	dbCon, dbErr := database.InitPostgresConnection()
+
+	if dbErr != nil {
+		return dbErr
+	}
+
+	insertErr := dbCon.InsertQuery(InsertConvertedFileName, nil, videoSeq, "COMPLETE", fileName)
+
+	if insertErr != nil {
+		log.Printf("Error inserting converted file name: %v", insertErr)
+		return insertErr
+	}
+
+	return nil
 }
