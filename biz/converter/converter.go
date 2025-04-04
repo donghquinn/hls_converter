@@ -163,9 +163,13 @@ func LoadConfig(cfg Config) {
 }
 
 func UpdateConvertedFileName(videoSeq string, fileName string) error {
-	dbCon := database.DatabaseInstance()
+	dbCon, dbErr := database.InitPostgresConnection()
 
-	insertErr := dbCon.PgInsertQuery(InsertConvertedFileName, nil, videoSeq, "COMPLETE", fileName)
+	if dbErr != nil {
+		return dbErr
+	}
+
+	insertErr := dbCon.InsertQuery(InsertConvertedFileName, nil, videoSeq, "COMPLETE", fileName)
 
 	if insertErr != nil {
 		log.Printf("Error inserting converted file name: %v", insertErr)
