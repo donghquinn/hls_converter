@@ -318,7 +318,7 @@ func UpdateConvertedFileName(videoSeq string, fileName string) error {
 		return dbErr
 	}
 
-	insertErr := dbCon.InsertQuery(InsertConvertedFileName, nil, videoSeq, "COMPLETE", fileName)
+	insertErr := dbCon.InsertQuery(InsertFileName, nil, videoSeq, "COMPLETE", fileName)
 
 	if insertErr != nil {
 		log.Printf("Error inserting converted file name: %v", insertErr)

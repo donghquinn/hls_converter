@@ -1,6 +1,6 @@
 package kafka
 
-var InsertConvertedFileName = `
+var InsertFileName = `
 	UPDATE video_table
 	SET hls_file_name = $1,
 		convert_status = $2
