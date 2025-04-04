@@ -154,6 +154,8 @@ func (k *KafkaInterface) Consume(ctx context.Context) {
 		m, err := k.ConsumerConn.FetchMessage(readCtx)
 		cancel()
 
+		// 에러 발생 시, 타임아웃 문제라면 그냥 계속 진행.
+		// 다른 에러라면 잠시 멈췄다가 재시행
 		if err != nil {
 			if err == context.DeadlineExceeded {
 				// This is just a timeout, continue
