@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/donghquinn/hls_converter/configs"
+	"github.com/donghquinn/hls_converter/database"
 	"github.com/donghquinn/hls_converter/kafka"
 	"github.com/donghquinn/hls_converter/utils"
 	"github.com/joho/godotenv"
@@ -24,6 +25,17 @@ func main() {
 	configs.SetDatabaseConfiguration()
 	configs.SetKafkaConfig()
 
+	dbConn, dbErr := database.InitPostgresConnection()
+
+	if dbErr != nil {
+		log.Fatalf("DATABASE Connection INIT Error: %v", dbErr)
+	}
+
+	pingErr := dbConn.CheckPostgresConnection()
+
+	if pingErr != nil {
+		log.Fatalf("DATABASE Connection Error: %v", pingErr)
+	}
 	// Create directories if they don't exist
 	createDirectories()
 

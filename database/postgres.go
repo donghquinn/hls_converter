@@ -46,35 +46,22 @@ func InitPostgresConnection() (*DataBaseConnector, error) {
 	return connect, nil
 }
 
-// // 테이블 생성
-// func CheckPostgresConnection() error {
-// 	log.Printf("Waiting for Database Connection,,,")
-// 	time.Sleep(time.Second * 10)
+// 테이블 생성
+func (connect *DataBaseConnector) CheckPostgresConnection() error {
+	log.Printf("Waiting for Database Connection,,,")
+	time.Sleep(time.Second * 10)
 
-// 	connect, dbErr := InitPostgresConnection()
+	defer connect.Close()
 
-// 	if dbErr != nil {
-// 		return dbErr
-// 	}
+	pingErr := connect.Ping()
 
-// 	pingErr := connect.Ping()
+	if pingErr != nil {
+		log.Printf("[DATABASE] Database Ping Error: %v", pingErr)
+		return pingErr
+	}
 
-// 	if pingErr != nil {
-// 		log.Printf("[DATABASE] Database Ping Error: %v", pingErr)
-// 		return pingErr
-// 	}
-
-// 	createErr := connect.CreateTable(CreateTableQueue)
-
-// 	if createErr != nil {
-// 		log.Printf("[DATABASE] Create Table Error: %v", createErr)
-// 		return createErr
-// 	}
-
-// 	defer connect.Close()
-
-// 	return nil
-// }
+	return nil
+}
 
 func (connect *DataBaseConnector) CreateTable(queryList []string) error {
 	ctx := context.Background()
