@@ -203,9 +203,14 @@ func (k *KafkaInterface) sendCompletionMessage(ctx context.Context, msg Completi
 func (k *KafkaInterface) processMessage(ctx context.Context, m kafka.Message) error {
 	// Parse the message
 	var fileMsg FileMessage
-	if err := json.Unmarshal(m.Value, &fileMsg); err != nil {
-		return fmt.Errorf("failed to unmarshal message: %v", err)
-	}
+	log.Printf("[KAFKA] Processing Message: key: %s, path: %s", m.Key, m.Value)
+
+	// key is videoSeq,value is file directory
+	fileMsg.FilePath = string(m.Value)
+	fileMsg.RequestID = string(m.Key)
+	// if err := json.Unmarshal(m.Value, &fileMsg); err != nil {
+	// 	return fmt.Errorf("failed to unmarshal message: %v", err)
+	// }
 
 	if fileMsg.RequestID == "" || fileMsg.FilePath == "" {
 		return fmt.Errorf("invalid message format: missing requestId or filePath")
