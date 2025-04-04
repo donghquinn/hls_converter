@@ -21,7 +21,7 @@ func main() {
 	go utils.ScheduleLogRotation()
 
 	configs.SetGlobalConfiguration()
-
+	configs.SetDatabaseConfiguration()
 	configs.SetKafkaConfig()
 
 	// Create directories if they don't exist
